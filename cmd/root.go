@@ -41,13 +41,37 @@ func init() {
 // Root function to handle args
 func root(urls []string, showMetadata bool) {
 	for _, url := range urls {
-		fetch(url)
+		if showMetadata {
+			filename := urlFilename(url)
+			if _, err := os.Stat(filename); os.IsNotExist(err) {
+				fetch(url)
+				getMetadata(filename)
+			} else {
+				getMetadata(filename)
+			}
+		} else {
+			fetch(url)
+		}
 	}
 }
 
-// func getMetadata(filename string) {
+func getMetadata(filename string) {
+	buf := bytes.NewBuffer(nil)
+	f, err := os.OpenFile(filename, os.O_RDWR, 0644)
+	io.Copy(buf, f)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
 
-// }
+	s := buf.String()
+
+	r, _ := regexp.Compile("<meta name=\"cmd-(.+)\" content=\"(.+)\">")
+	match := r.FindAllStringSubmatch(s, -1)
+	for _, tag := range match {
+		fmt.Println(tag[1] + ": " + tag[2])
+	}
+}
 
 func fetch(url string) {
 	resp, err := http.Get(url)
@@ -106,7 +130,7 @@ func getImagesQuantity(fileContent string) string {
 }
 
 func metadataFormat(name string, content string) string {
-	return "\n<meta name=\"" + name + "\" content=\"" + content + "\">"
+	return "\n<meta name=\"cmd-" + name + "\" content=\"" + content + "\">"
 }
 
 func urlFilename(url string) string {
